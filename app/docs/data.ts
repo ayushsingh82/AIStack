@@ -1,8 +1,14 @@
+export type Section = {
+  title: string;
+  topics: string[];
+};
+
 export type Module = {
   number: number;
   title: string;
   slug: string;
   topics: string[];
+  sections?: Section[];
 };
 
 function slugify(value: string): string {
@@ -90,13 +96,44 @@ const rawModules: Omit<Module, "slug">[] = [
       "Tree of Thoughts",
       "ReAct",
       "Prompt Templates",
-      "Context Engineering",
-      "Context Windows",
-      "Long Context",
-      "Memory",
-      "Context Compression",
-      "Semantic Compression",
-      "Context Ranking",
+    ],
+    sections: [
+      {
+        title: "Context Engineering",
+        topics: [
+          "What is Context?",
+          "Prompt vs Context Engineering",
+          "Components of Context",
+          "Context Lifecycle",
+          "Context Packing",
+          "Context Ordering",
+          "Context Pruning",
+          "Context Compression",
+          "Context Ranking",
+          "Token Budgeting",
+          "Memory vs Context",
+          "Context for Agents",
+          "Context for RAG",
+        ],
+      },
+      {
+        title: "Context Window & Tokens",
+        topics: [
+          "Tokenization",
+          "Context Window",
+          "Token Limits",
+          "Prompt Length",
+          "Conversation History",
+          "Token Counting",
+          "Context Overflow",
+          "Sliding Window",
+          "Summarization",
+          "Long Context Models",
+          "Lost in the Middle",
+          "Cost vs Context Size",
+          "Latency vs Context Size",
+        ],
+      },
     ],
   },
   {
@@ -259,10 +296,17 @@ const rawModules: Omit<Module, "slug">[] = [
 export const modules: Module[] = rawModules.map((m) => ({
   ...m,
   slug: slugify(m.title),
+  topics: m.sections
+    ? [...m.topics, ...m.sections.flatMap((s) => s.topics)]
+    : m.topics,
 }));
 
 export function topicSlug(topic: string): string {
   return slugify(topic);
+}
+
+export function sectionSlug(title: string): string {
+  return slugify(title);
 }
 
 export function findModule(moduleSlug: string): Module | undefined {
@@ -275,4 +319,14 @@ export function findTopic(moduleSlug: string, topicSlugValue: string) {
   const topic = module.topics.find((t) => topicSlug(t) === topicSlugValue);
   if (!topic) return undefined;
   return { module, topic };
+}
+
+export function findSection(moduleSlug: string, sectionSlugValue: string) {
+  const module = findModule(moduleSlug);
+  if (!module) return undefined;
+  const section = module.sections?.find(
+    (s) => sectionSlug(s.title) === sectionSlugValue,
+  );
+  if (!section) return undefined;
+  return { module, section };
 }
