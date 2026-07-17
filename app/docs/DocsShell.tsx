@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
+import SearchBar from "./SearchBar";
 
 export default function DocsShell({
   sidebar,
@@ -20,16 +21,19 @@ export default function DocsShell({
 
   return (
     <div className="min-h-screen w-full bg-black text-white lg:flex">
-      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-black px-4 py-3 lg:hidden">
-        <Link href="/" className="text-base font-semibold">
+      <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/10 bg-black px-4 py-3 lg:hidden">
+        <Link href="/" className="shrink-0 text-base font-semibold">
           AIStack Docs
         </Link>
+        <div className="min-w-0 flex-1">
+          <SearchBar />
+        </div>
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
           aria-label="Toggle navigation"
           aria-expanded={open}
-          className="rounded-md p-2 text-gray-300 hover:bg-white/5 hover:text-white"
+          className="shrink-0 rounded-md p-2 text-gray-300 hover:bg-white/5 hover:text-white"
         >
           {open ? (
             <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
@@ -77,8 +81,11 @@ export default function DocsShell({
         {sidebar}
       </aside>
 
-      <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
-        {children}
+      <main className="min-w-0 flex-1">
+        <div className="sticky top-0 z-10 hidden justify-end border-b border-white/10 bg-black/95 px-6 py-4 backdrop-blur lg:flex lg:px-10">
+          <SearchBar />
+        </div>
+        <div className="px-4 py-8 sm:px-6 lg:px-10 lg:py-10">{children}</div>
       </main>
     </div>
   );

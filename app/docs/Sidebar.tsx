@@ -32,22 +32,37 @@ export default function Sidebar() {
   const [activeKey, setActiveKey] = useState<string | null>(null);
 
   useEffect(() => {
-    const match = pathname.match(/^\/docs\/([^/]+)\/section\/([^/]+)/);
-    if (!match) return;
-    const [, moduleSlug, sectionSlugParam] = match;
-    const module = modules.find((m) => m.slug === moduleSlug);
-    const section = module?.sections?.find(
-      (s) => sectionSlug(s.title) === sectionSlugParam,
-    );
-    if (!module || !section) return;
-    setOpenKeys((prev) => {
-      const next = new Set(prev);
-      next.add(module.slug);
-      next.add(`${module.slug}::${section.title}`);
-      return next;
-    });
-    if (typeof window !== "undefined" && window.location.hash) {
-      setActiveKey(`${module.slug}:${window.location.hash.slice(1)}`);
+    const sectionMatch = pathname.match(/^\/docs\/([^/]+)\/section\/([^/]+)/);
+    if (sectionMatch) {
+      const [, moduleSlug, sectionSlugParam] = sectionMatch;
+      const module = modules.find((m) => m.slug === moduleSlug);
+      const section = module?.sections?.find(
+        (s) => sectionSlug(s.title) === sectionSlugParam,
+      );
+      if (!module || !section) return;
+      setOpenKeys((prev) => {
+        const next = new Set(prev);
+        next.add(module.slug);
+        next.add(`${module.slug}::${section.title}`);
+        return next;
+      });
+      if (typeof window !== "undefined" && window.location.hash) {
+        setActiveKey(`${module.slug}:${window.location.hash.slice(1)}`);
+      }
+      return;
+    }
+
+    const topicMatch = pathname.match(/^\/docs\/([^/]+)\/([^/]+)$/);
+    if (topicMatch) {
+      const [, moduleSlug, topicSlugParam] = topicMatch;
+      const module = modules.find((m) => m.slug === moduleSlug);
+      if (!module) return;
+      setOpenKeys((prev) => {
+        const next = new Set(prev);
+        next.add(module.slug);
+        return next;
+      });
+      setActiveKey(`${module.slug}:${topicSlugParam}`);
     }
   }, [pathname]);
 
@@ -95,16 +110,24 @@ export default function Sidebar() {
               <div className="mt-1">
                 {flatTopics.length > 0 && (
                   <ul className="space-y-0.5">
-                    {flatTopics.map((topic) => (
-                      <li key={topic}>
-                        <Link
-                          href={`/docs/${module.slug}/${topicSlug(topic)}`}
-                          className="block rounded-md py-1 pl-7 pr-2 text-[13px] leading-5 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
-                        >
-                          {topic}
-                        </Link>
-                      </li>
-                    ))}
+                    {flatTopics.map((topic) => {
+                      const key = `${module.slug}:${topicSlug(topic)}`;
+                      const isActive = activeKey === key;
+                      return (
+                        <li key={topic}>
+                          <Link
+                            href={`/docs/${module.slug}/${topicSlug(topic)}`}
+                            className={`block rounded-md py-1 pl-7 pr-2 text-[13px] leading-5 transition-colors hover:bg-white/5 hover:text-white ${
+                              isActive
+                                ? "bg-white/10 text-white"
+                                : "text-gray-400"
+                            }`}
+                          >
+                            {topic}
+                          </Link>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
                 {module.sections?.map((section) => {
