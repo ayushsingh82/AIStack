@@ -63,6 +63,7 @@ const rawModules: Omit<Module, "slug">[] = [
       "Prefill",
       "Decode",
       "KV Cache",
+      "Roofline Profiler",
       "Cache Eviction",
       "FlashAttention",
       "Paged Attention",
