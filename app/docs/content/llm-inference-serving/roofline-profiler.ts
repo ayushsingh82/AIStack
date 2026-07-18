@@ -3,88 +3,146 @@ import type { Block } from "../types";
 const content: Block[] = [
   {
     type: "p",
-    text: "**\"I built a PyTorch roofline profiler because I want to prove and understand intuitively why decode is memory bound and prefill is compute bound.\"** This one sentence packs a lot of systems and GPU performance concepts together — let's break it down.",
+    text: "If you're building your own inference engineering notes, don't just copy explanations — write them so **future you** can understand them in six months. Here's a roofline profiler write-up structured that way: intuition first, each concept explained on its own, building up to the main idea, ending in a quick revision section.",
   },
 
   { type: "h2", text: "What is a roofline profiler?" },
   {
     type: "p",
-    text: "A **profiler** is a tool that measures how a program uses hardware. A **roofline profiler** specifically tells you how many computations (FLOPs) your program performs, how much data it moves between memory and the GPU, and whether the bottleneck is **compute (math)** or **memory bandwidth**.",
-  },
-  {
-    type: "p",
-    text: "It's built on the **Roofline Model**, a performance model for CPUs and GPUs. Think of it as a report card that answers: **why isn't my model running faster?**",
+    text: "A **roofline profiler** is a performance analysis tool that tells you **why a program is slow**. Instead of just measuring execution time, it answers questions like: is my GPU spending most of its time doing computations, or is it waiting for data from memory? What is preventing my model from running faster? Think of it as a **health report for your GPU workload**.",
   },
 
-  { type: "h2", text: "Prefill: reading the whole prompt at once" },
+  { type: "h2", text: "Why do we need it?" },
   {
     type: "p",
-    text: "Before generating any response, the model first reads your entire prompt. For `The quick brown fox jumps over the lazy dog`, it computes embeddings, attention, and feed-forward layers for **all input tokens at once** — this initial pass is called **prefill**.",
+    text: "When running LLMs, not every operation is limited by GPU computation. Some steps are slow because the GPU cores are busy doing math — **compute bound**. Others are slow because the GPU cores are idle, waiting for memory — **memory bound**. A roofline profiler helps identify which one is the bottleneck for a given workload.",
+  },
+
+  { type: "h2", text: "What does a roofline profiler measure?" },
+  {
+    type: "p",
+    text: "It mainly measures four things: FLOPs, memory traffic, arithmetic intensity, and hardware limits.",
+  },
+  {
+    type: "p",
+    text: "**1. FLOPs (floating point operations)** — the total amount of mathematical work. 1000 matrix multiplications turn into millions or billions of FLOPs. More FLOPs means more computation.",
+  },
+  {
+    type: "p",
+    text: "**2. Memory traffic** — how much data moves between GPU memory and GPU cores: reading weights, reading the KV cache, writing output. Large data movement can become the bottleneck on its own.",
+  },
+  {
+    type: "p",
+    text: "**3. Arithmetic intensity** — one of the most important concepts here.",
   },
   {
     type: "code",
-    text: "Token1  Token2  Token3  ...  Token9\n\n→ attention computed among all of them, in parallel",
+    text: "Arithmetic Intensity = FLOPs / Bytes Moved",
+  },
+  {
+    type: "p",
+    text: "It answers: how much computation is done for every byte read from memory? 100 FLOPs over 10 bytes gives an arithmetic intensity of 10 — high arithmetic intensity means lots of computation per byte, usually compute bound. 10 FLOPs over 100 bytes gives 0.1 — low arithmetic intensity means lots of memory movement relative to compute, usually memory bound.",
+  },
+  {
+    type: "p",
+    text: "**4. Hardware limits** — the profiler compares your workload against your GPU's ceilings, e.g. a maximum compute of 120 TFLOPS and a maximum memory bandwidth of 1.5 TB/s. It then tells you which limit you're hitting.",
   },
 
-  { type: "h2", text: "Why prefill is compute bound" },
+  { type: "h2", text: "The roofline model" },
   {
     type: "p",
-    text: "During prefill, the GPU runs a huge amount of matrix multiplication: `Q × Kᵀ`, `Attention × V`, the feed-forward layers, layernorm. Modern GPUs (H100, RTX 4090) are extremely good at this kind of math, so the GPU spends most of its time **doing calculations**, not waiting for data. Compute > memory — this is **compute bound**.",
-  },
-  {
-    type: "p",
-    text: "**Analogy**: a teacher hands 100 students a math worksheet and everyone starts solving at once. The bottleneck is solving the problems, not fetching the paper.",
-  },
-
-  { type: "h2", text: "Decode: one token at a time" },
-  {
-    type: "p",
-    text: "Once the prompt has been read, the model starts generating — one token per step (`Hello` → `Hello there` → `Hello there friend` → ...). This phase is called **decode**. For every new token the model loads the **KV cache**, computes attention against it, and predicts one token, then repeats.",
-  },
-
-  { type: "h2", text: "Why decode is memory bound" },
-  {
-    type: "p",
-    text: "Say we've already generated `Hello there my wonderful friend` and want token 6. The model needs the cached `K1..K5` and `V1..V5` — all sitting in GPU memory. Reading them dominates the step; the actual math for one new token is small.",
+    text: "Picture a graph of performance (FLOPs/sec) against arithmetic intensity. Low arithmetic intensity sits under a sloped memory-bandwidth line; past a certain point, performance flattens out under a horizontal compute roof.",
   },
   {
     type: "code",
-    text: "Compute bound:            Memory bound:\n  Math                       Read memory\n  Math                       Read memory\n  Math                       Read memory\n  Math                       Tiny computation",
+    text: "Performance (FLOPs/sec)\n^\n|                     _____________ Compute Roof\n|                  /\n|               /\n|            /\n|__________/____________________________>\n      Arithmetic Intensity",
   },
   {
     type: "p",
-    text: "**Analogy**: prefill is 100 chefs cooking 100 meals at once — cooking is the bottleneck. Decode is one chef who walks to the pantry, grabs ingredients, cooks for 10 seconds, then walks again — the walking (memory access) dominates.",
+    text: "**Left side — memory bound.** The GPU is waiting for memory and doing a small amount of math. The problem: memory is too slow, so the GPU has nothing to compute yet.",
+  },
+  {
+    type: "p",
+    text: "**Right side — compute bound.** The GPU is doing matrix multiplication, using tensor cores, running heavy computation. The problem: GPU compute is fully utilized — memory isn't the bottleneck anymore.",
   },
 
-  { type: "h2", text: "Compute bound vs memory bound" },
+  { type: "h2", text: "What is prefill?" },
+  {
+    type: "p",
+    text: "Prefill is the **first stage** of inference. The model processes the entire prompt before generating any output. For a prompt like `Explain blockchain in simple words`, the model reads every token — `Explain`, `blockchain`, `in`, `simple`, `words` — all together, computing embeddings, attention, feed-forward network, and layernorm for every token simultaneously.",
+  },
+
+  { type: "h2", text: "Why is prefill compute bound?" },
+  {
+    type: "p",
+    text: "During prefill, almost all GPU cores are busy performing large matrix multiplications: `Q × Kᵀ`, `Attention × V`, and the feed-forward layers. These operations require a huge amount of computation. Since the GPU is constantly performing math, the bottleneck becomes GPU compute, not memory. This is **compute bound**.",
+  },
+  {
+    type: "p",
+    text: "**Analogy**: imagine 100 students solving math questions. Everyone already has the worksheet. The slow part is solving the problems, not picking up the paper.",
+  },
+
+  { type: "h2", text: "What is decode?" },
+  {
+    type: "p",
+    text: "After the prompt has been processed, the model starts generating one token at a time: `Hello` → `Hello there` → `Hello there friend`. Every new token repeats the same process.",
+  },
+  {
+    type: "p",
+    text: "For every generated token, the model loads the KV cache, computes attention, and predicts one new token. Repeat, repeat, repeat.",
+  },
+
+  { type: "h2", text: "What is the KV cache?" },
+  {
+    type: "p",
+    text: "Every token stores a Key (K) and Value (V) instead of recomputing them every generation step. For the prompt `Hello How Are You`, the model stores `K1 V1`, `K2 V2`, `K3 V3`, `K4 V4`. When generating the next word, instead of recalculating everything, the model simply loads `K1..K4` and `V1..V4`. This saves a huge amount of computation.",
+  },
+
+  { type: "h2", text: "Why is decode memory bound?" },
+  {
+    type: "p",
+    text: "Although the KV cache saves computation, it must still be **read from GPU memory** every decoding step. For a 1000-token prompt generating token 1001, the GPU loads `K1..K1000` and `V1..V1000` — a large amount of memory traffic — while performing relatively little new computation. The GPU spends more time reading memory than doing math. This makes decode **memory bound**.",
+  },
+  {
+    type: "p",
+    text: "**Analogy**: imagine writing a book where each new sentence requires reading all previous notes before writing one more sentence. Writing one sentence is easy; finding and reading all your notes takes much longer. That's exactly what happens during decode.",
+  },
+
+  { type: "h2", text: "Prefill vs decode" },
   {
     type: "ul",
     items: [
-      "**Compute bound** — the GPU is fully occupied doing calculations. A faster GPU helps; faster memory barely moves the needle.",
-      "**Memory bound** — compute units sit idle waiting for data. More memory bandwidth helps far more than more compute power.",
+      "**Processes** — Prefill: entire prompt. Decode: one token.",
+      "**Parallel?** — Prefill: yes. Decode: no.",
+      "**Main work** — Prefill: matrix multiplication. Decode: reading KV cache.",
+      "**GPU bottleneck** — Prefill: compute. Decode: memory.",
+      "**Hardware limited by** — Prefill: FLOPs. Decode: memory bandwidth.",
     ],
-  },
-  {
-    type: "p",
-    text: "As context grows — say a 500-token prompt generating token 501 — the model must load `K1..K500` and `V1..V500` from the KV cache. That memory traffic grows linearly with context length while the new computation per step stays tiny, which is exactly why decode gets *more* memory bound the longer the conversation runs.",
   },
 
   { type: "h2", text: "Why build a roofline profiler" },
   {
     type: "p",
-    text: "Rather than just asserting \"prefill is compute bound, decode is memory bound,\" a roofline profiler measures it: FLOPs performed, bytes read from memory, arithmetic intensity (FLOPs per byte), GPU utilization, and memory bandwidth usage.",
+    text: "Instead of guessing whether your model is compute-bound or memory-bound, a roofline profiler provides quantitative evidence. Prefill shows high FLOPs, moderate memory traffic, and high arithmetic intensity — compute bound. Decode shows lower FLOPs, heavy KV cache reads, and low arithmetic intensity — memory bound.",
   },
   {
     type: "code",
     text: "Prefill → high FLOPs, medium memory  → compute bound\nDecode  → low FLOPs,  very high memory → memory bound",
   },
 
-  { type: "h2", text: "In one sentence" },
+  { type: "h2", text: "Quick revision (30 seconds)" },
   {
     type: "ul",
     items: [
-      "**Prefill** processes the entire prompt in parallel with massive matrix multiplications, so GPU computation is the bottleneck — **compute bound**.",
-      "**Decode** generates one token at a time and repeatedly reads the growing KV cache from memory, so memory bandwidth becomes the bottleneck — **memory bound**.",
+      "**Roofline Profiler**: Tells you whether performance is limited by computation or memory.",
+      "**FLOPs**: Amount of mathematical work performed.",
+      "**Memory Traffic**: Amount of data moved between memory and the GPU.",
+      "**Arithmetic Intensity**: FLOPs ÷ Bytes Moved.",
+      "**High Arithmetic Intensity**: Usually compute bound.",
+      "**Low Arithmetic Intensity**: Usually memory bound.",
+      "**Prefill**: Processes the full prompt in parallel → compute bound.",
+      "**Decode**: Generates one token at a time while repeatedly reading the KV cache → memory bound.",
+      "**KV Cache**: Stores previously computed Keys and Values so they can be reused instead of recomputed during generation.",
     ],
   },
 ];
