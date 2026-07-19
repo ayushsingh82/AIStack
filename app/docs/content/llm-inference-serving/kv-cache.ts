@@ -77,6 +77,15 @@ const content: Block[] = [
     text: "A common question: why do we only cache K and V — why not Q? Because the **Query belongs to the current token only**. When generating token 4, `Q4` is completely different from `Q3` — every newly generated token asks a **new question** about the previous context, so Queries must always be computed again. Keys and Values, however, describe **past tokens**, which never change once generated.",
   },
 
+  { type: "h2", text: "Architecture Diagram" },
+  {
+    type: "image",
+    src: "/kv_cache.png",
+    alt: "KV cache diagram showing cached Keys and Values reused across decoding steps",
+    width: 2542,
+    height: 1148,
+  },
+
   { type: "h2", text: "Why is KV cache so fast?" },
   {
     type: "p",

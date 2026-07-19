@@ -1,6 +1,7 @@
 import type { Block, TopicContent } from "./types";
 import promptContextEngineering from "./prompt-context-engineering";
 import llmInferenceServing from "./llm-inference-serving";
+import aiInfrastructure from "./ai-infrastructure";
 
 export type { Block, TopicContent } from "./types";
 
@@ -9,6 +10,7 @@ export type { Block, TopicContent } from "./types";
 const registry: Record<string, TopicContent> = {
   "prompt-context-engineering": promptContextEngineering,
   "llm-inference-serving": llmInferenceServing,
+  "ai-infrastructure": aiInfrastructure,
 };
 
 export function getTopicContent(

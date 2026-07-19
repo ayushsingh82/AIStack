@@ -21,7 +21,7 @@ export default function DocsShell({
 
   return (
     <div className="min-h-screen w-full bg-black text-white lg:flex">
-      <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/10 bg-black px-4 py-3 lg:hidden">
+      <div className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-white/10 bg-black px-4 py-3 lg:hidden">
         <Link href="/" className="shrink-0 text-base font-semibold">
           AIStack Docs
         </Link>
@@ -68,7 +68,7 @@ export default function DocsShell({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-20 w-72 transform overflow-y-auto border-r border-white/10 bg-black px-4 pb-6 pt-4 transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:h-screen lg:w-72 lg:shrink-0 lg:translate-x-0 lg:py-6 ${
+        className={`fixed left-0 top-14 bottom-0 z-20 w-72 transform overflow-y-auto border-r border-white/10 bg-black px-4 pb-6 pt-4 transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:h-screen lg:w-72 lg:shrink-0 lg:translate-x-0 lg:py-6 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >

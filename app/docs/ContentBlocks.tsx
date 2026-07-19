@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 import type { Block } from "./content";
 
 function renderInline(text: string): ReactNode[] {
@@ -61,6 +62,21 @@ export default function ContentBlocks({ blocks }: { blocks: Block[] }) {
               >
                 {block.text}
               </pre>
+            );
+          case "image":
+            return (
+              <div
+                key={i}
+                className="mt-4 overflow-hidden rounded-lg border border-white/10 bg-white/5"
+              >
+                <Image
+                  src={block.src}
+                  alt={block.alt}
+                  width={block.width}
+                  height={block.height}
+                  className="h-auto w-full"
+                />
+              </div>
             );
           default:
             return null;
