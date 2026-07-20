@@ -100,6 +100,26 @@ const content: Block[] = [
     text: "Notice thread indices restart at 0 in every block — `threadIdx` is local to a block, not global. To get a unique index across the whole grid, a kernel computes it as `blockIdx.x * blockDim.x + threadIdx.x`.",
   },
 
+  { type: "h2", text: "Warp" },
+  {
+    type: "p",
+    text: "A **warp** is a group of 32 CUDA threads that execute the same instruction at the same time on an NVIDIA GPU. Instead of scheduling each thread individually, the GPU schedules one warp, making execution much more efficient. Think of a warp as the smallest execution unit the GPU scheduler works with.",
+  },
+  {
+    type: "code",
+    text: "Block\n │\n ├── Warp 0 (32 Threads)\n │    ├── Thread 0\n │    ├── Thread 1\n │    ├── ...\n │    └── Thread 31\n │\n ├── Warp 1 (32 Threads)\n │    ├── Thread 32\n │    ├── ...\n │    └── Thread 63\n │\n └── Warp 2 (32 Threads)",
+  },
+  {
+    type: "p",
+    text: "Warps are the basic scheduling unit of the GPU.",
+  },
+
+  { type: "h2", text: "Software vs Hardware" },
+  {
+    type: "code",
+    text: "Software (CUDA)    Hardware (GPU)\n\nGrid           →   GPU\nBlocks         →   SMs (Streaming Multiprocessors)\nWarps          →   Scheduled by Warp Scheduler\nThreads        →   CUDA Cores execute instructions",
+  },
+
   { type: "h2", text: "Global Block Scheduler" },
   {
     type: "p",
@@ -120,6 +140,37 @@ const content: Block[] = [
   {
     type: "p",
     text: "This repeats — assign, run, finish, reassign — until all 100 blocks have executed. It's why a grid isn't limited to one block per SM: the scheduler just keeps feeding the hardware until the whole grid is done.",
+  },
+
+  { type: "h2", text: "Architecture" },
+  {
+    type: "image",
+    src: "/cuda.png",
+    alt: "CUDA GPU architecture diagram showing the GPU, GPC, SM, and CUDA core hierarchy",
+    width: 1612,
+    height: 1456,
+  },
+
+  { type: "h2", text: "H100 Anatomy: GPU → GPC → SM (Size Comparison)" },
+  {
+    type: "p",
+    text: "The H100 (Hopper architecture) is currently one of the most powerful GPUs for AI. Its compute is organized top-down: **GPU → GPC → SM**.",
+  },
+  {
+    type: "code",
+    text: "H100 GPU\n └── 8 GPCs\n       └── 132 SMs total  (~16-17 SMs per GPC)",
+  },
+  {
+    type: "ul",
+    items: [
+      "**SM (Streaming Multiprocessor)** — a mini processor inside the GPU; the unit that actually executes a CUDA block",
+      "**GPC (Graphics Processing Cluster)** — a larger unit containing multiple SMs; the H100 has 8 GPCs, each managing a group of SMs",
+      "**HBM3 (High Bandwidth Memory)** — instead of ordinary VRAM, modern AI GPUs use HBM3 to feed data to the compute units fast enough to keep them busy",
+    ],
+  },
+  {
+    type: "p",
+    text: "Put together: 1 GPU → 8 GPCs → 132 SMs, all fed by HBM3. Each SM is like a small, independent GPU capable of executing CUDA blocks on its own — 132 of them means 132x the parallel work compared to just one.",
   },
 
   { type: "h2", text: "Memory Hierarchy" },
@@ -181,6 +232,15 @@ const content: Block[] = [
       "**Registers → Shared → L1/L2 → Global** — memory hierarchy, fastest to slowest",
       "**`cudaMemcpy()`** — moves data between CPU and GPU (separate memory spaces)",
       "**`__syncthreads()`** — barrier for threads within a block",
+      "**SM (Streaming Multiprocessor)** — the GPU unit that executes CUDA blocks",
+      "**GPC (Graphics Processing Cluster)** — a higher-level grouping of multiple SMs",
+      "**HBM3 (High Bandwidth Memory)** — extremely fast GPU memory that feeds data to the compute units",
+      "**MNIST** — a simple handwritten-digit dataset used to learn and test neural networks",
+      "**Benchmarking** — measure how fast a program runs",
+      "**Profiling** — find where time is being spent and identify bottlenecks",
+      "**Optimization** — improve performance based on profiling results",
+      "**Warp** — a group of 32 threads that execute together",
+      "**Memory Stall** — a warp pauses while waiting for data",
     ],
   },
   {
