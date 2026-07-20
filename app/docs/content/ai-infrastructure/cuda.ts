@@ -23,7 +23,7 @@ const content: Block[] = [
   },
   {
     type: "code",
-    text: "CPU              GPU\n1+5              Thread 1 → 1+5\n2+6      vs       Thread 2 → 2+6\n3+7               Thread 3 → 3+7\n4+8               Thread 4 → 4+8\n(one after other) (all at once)",
+    text: "CPU                  GPU\n         vs\n1+5                  Thread 1 → 1+5\n2+6                  Thread 2 → 2+6\n3+7                  Thread 3 → 3+7\n4+8                  Thread 4 → 4+8\n(one after other)    (all at once)",
   },
   {
     type: "p",
@@ -57,7 +57,7 @@ const content: Block[] = [
   },
   {
     type: "code",
-    text: "void add(...)           // CPU function\n__global__ void add(...) // CUDA kernel",
+    text: "void add(...)             // CPU function\n__global__ void add(...)  // CUDA kernel",
   },
   {
     type: "p",
@@ -83,7 +83,43 @@ const content: Block[] = [
   },
   {
     type: "p",
-    text: "CUDA schedules **blocks**, not individual threads — much cheaper to manage.",
+    text: "CUDA schedules **blocks**, not individual threads — much cheaper to manage. Scheduling every thread individually would be expensive, so CUDA schedules a whole 256-thread block onto an SM as a single unit instead.",
+  },
+
+  { type: "h2", text: "Blocks and Grids" },
+  {
+    type: "p",
+    text: "Say a kernel needs 10,000 threads. The GPU doesn't track each one individually — that would be way too much bookkeeping. Instead, CUDA groups threads into **blocks**, and groups blocks into a **grid**.",
+  },
+  {
+    type: "code",
+    text: "Grid\n ├── Block 0\n │    ├── Thread 0\n │    ├── Thread 1\n │    └── Thread 2\n ├── Block 1\n │    ├── Thread 0\n │    └── Thread 1\n └── Block 2\n      └── Thread 0",
+  },
+  {
+    type: "p",
+    text: "Notice thread indices restart at 0 in every block — `threadIdx` is local to a block, not global. To get a unique index across the whole grid, a kernel computes it as `blockIdx.x * blockDim.x + threadIdx.x`.",
+  },
+
+  { type: "h2", text: "Global Block Scheduler" },
+  {
+    type: "p",
+    text: "Say a kernel launches **100 blocks** on a GPU with only **8 SMs**. There aren't enough SMs to run every block at once, so a hardware scheduler assigns blocks to SMs as they free up.",
+  },
+  {
+    type: "code",
+    text: "SM 1 → Block 0\nSM 2 → Block 1\nSM 3 → Block 2\n  ...\nSM 8 → Block 7",
+  },
+  {
+    type: "p",
+    text: "The moment an SM finishes its block, the scheduler hands it the next one waiting in line — e.g. once SM 1 finishes Block 0, it picks up Block 18:",
+  },
+  {
+    type: "code",
+    text: "SM 1 finishes Block 0\n        ↓\n   SM 1 → Block 18",
+  },
+  {
+    type: "p",
+    text: "This repeats — assign, run, finish, reassign — until all 100 blocks have executed. It's why a grid isn't limited to one block per SM: the scheduler just keeps feeding the hardware until the whole grid is done.",
   },
 
   { type: "h2", text: "Memory Hierarchy" },
@@ -109,7 +145,7 @@ const content: Block[] = [
   { type: "h2", text: "Typical CUDA Workflow" },
   {
     type: "code",
-    text: "malloc()                  // 1. allocate CPU memory\ncudaMalloc()               // 2. allocate GPU memory\ncudaMemcpy()               // 3. copy CPU → GPU\nkernel<<<blocks,threads>>>() // 4. launch kernel\ncudaMemcpy()               // 5. copy GPU → CPU\ncudaFree()                 // 6. free GPU memory",
+    text: "malloc()                      // 1. allocate CPU memory\ncudaMalloc()                  // 2. allocate GPU memory\ncudaMemcpy()                  // 3. copy CPU → GPU\nkernel<<<blocks,threads>>>()  // 4. launch kernel\ncudaMemcpy()                  // 5. copy GPU → CPU\ncudaFree()                    // 6. free GPU memory",
   },
   {
     type: "p",
@@ -126,6 +162,11 @@ const content: Block[] = [
   {
     type: "p",
     text: "Every LLM op — GEMM, self-attention, FlashAttention, LayerNorm, softmax, embedding lookup, activations — is a CUDA kernel. Knowing CUDA is what turns FlashAttention, Tensor Cores, fused kernels, CUDA graphs, and KV cache tricks from magic into mechanics.",
+  },
+  { type: "h2", text: "Why is CUDA Important for AI?" },
+  {
+    type: "p",
+    text: "PyTorch, TensorFlow, and JAX all use CUDA under the hood — it's the layer that makes them fast on GPUs in the first place. The Python API just hides the mechanics already covered above (see \"CUDA in PyTorch\"): allocation, the CPU→GPU copy, and the kernel launch.",
   },
 
   { type: "h2", text: "Quick Revision" },
